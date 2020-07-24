@@ -83,7 +83,7 @@ def main():
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     bert_model = BertModel.from_pretrained('bert-base-uncased')
 
-    data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1', size=5000)
+    data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1', size=500)
     features = convert_examples_to_features(data, tokenizer, 200, 100, 50, True)
 
     with open(args.config) as config_file: 
