@@ -84,6 +84,7 @@ def main():
     bert_model = BertModel.from_pretrained('bert-base-uncased')
 
     data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1')
+    features = convert_examples_to_features(data, tokenizer, 200, 150, 50, True)
 
     with open(args.config) as config_file: 
         hyp = json.load(config_file)['hyperparams']  
