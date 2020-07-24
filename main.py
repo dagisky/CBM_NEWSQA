@@ -7,7 +7,6 @@ from torch import nn
 from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 from time import gmtime, strftime
-from data import BABI
 from MultiHeadRln import EncoderModel
 from utils.utils import Logger
 import json
