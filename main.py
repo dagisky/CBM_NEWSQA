@@ -98,11 +98,12 @@ def main():
 
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+    all_seq_lengths = torch.tensor([len(f.input_ids) for f in features], dtype=torch.long)
     all_start_pos = torch.tensor([f.start_position for f in features], dtype=torch.long)
     all_end_pos = torch.tensor([f.end_position for f in features], dtype=torch.long)
     all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
     all_example_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
-    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_example_index)
+    dataset = TensorDataset(all_input_ids, all_input_mask, all_seq_lengths, all_segment_ids, all_example_index)
 
     eval_sampler = SequentialSampler(dataset)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.train_batch_size)
@@ -115,7 +116,7 @@ def main():
     for e in range(args.epoch_start, args.epoch):        
         loss, acc, total = 0.0, 0.0, 0.0
         for i, batch in enumerate(eval_dataloader): 
-            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[2], batch[3], model_loss, optimizer, args)            
+            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[3], batch[4], batch[2], model_loss, optimizer, args)            
             batch_pred = torch.argmax(out, dim=1)
             loss += float(batch_loss)
             total += args.train_batch_size
