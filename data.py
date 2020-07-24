@@ -105,7 +105,7 @@ def get_story(index, path="data/"):
     Output:
         story (str): CNN story for the given index
     """
-    f = open(path[1:]+index, 'r', encoding="utf-8", errors="surrogateescape")
+    f = open(path+index.strip()[1:], 'r', encoding="utf-8", errors="surrogateescape")
     story = ""
     for line in f.readlines():
         story += line+" "
