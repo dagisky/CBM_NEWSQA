@@ -76,8 +76,7 @@ def main():
     device = torch.device(f"cuda:{str(gpu_list[0])}" if args.use_cuda and torch.cuda.is_available() else "cpu")
     
 
-    print('loading BABI data...')
-    setattr(args, 'dataset', 'Task'+args.task+'_text_10K') #
+    print('loading NewsQA data...')
     setattr(args, 'device', device)
     setattr(args, 'model_time', strftime('%H_%M_%S', gmtime()))
 
