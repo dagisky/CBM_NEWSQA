@@ -128,7 +128,6 @@ class EncoderModel(nn.Module):
         self.device = args.device
 
         self.params = { # NOTE WE CAN TRAIN BY PART i.e first train the other nets next include rln nets
-                'embedding':self.embedding,
                 'rnn': self.rnn,                
                 'multi_head': self.multi_head_attn, #'attn':self.attn,
                 'relational': self.relational
