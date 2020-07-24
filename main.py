@@ -21,11 +21,11 @@ gpu_list = [4, 6, 7] # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
 
 
-def train(model, x, y, mask, seqlens, mloss, optim, args): 
+def train(model, x, mask, p1, p2, seqlens, mloss, optim, args): 
     pred, std = model(x, mask, seqlens) 
     log_softmax = nn.LogSoftmax()
     optim.zero_grad()  
-    loss = mloss(log_softmax(pred), y)
+    loss = mloss(log_softmax(pred[0]), p1) + mloss(log_softmax(pred[1]), p1)
    
     std = torch.sum(std)
 
@@ -58,7 +58,7 @@ def main():
     parser.add_argument('--epoch_start', default=0, type=int)
     parser.add_argument('--exp-decay-rate', default=0.99, type=float)
     parser.add_argument('--use_cuda', default=True)
-    parser.add_argument('--hidden-size', default=100, type=int)
+    parser.add_argument('--hidden-size', default=768, type=int)
     parser.add_argument('--learning-rate', default=0.05, type=float)
     parser.add_argument('--print-freq', default=250, type=int)
     parser.add_argument('--train-batch-size', default=60, type=int)
@@ -114,67 +114,64 @@ def main():
     for e in range(args.epoch_start, args.epoch):        
         loss, acc, total = 0.0, 0.0, 0.0
         for i, batch in enumerate(eval_dataloader): 
-
-            batch_loss, out = train(model, batch[0], batch.answer, batch[1], batch.dialog[1], model_loss, optimizer, args)            
+            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[2], batch[3], model_loss, optimizer, args)            
             batch_pred = torch.argmax(out, dim=1)
-            batch_acc = (batch_pred == batch.answer).sum()
             loss += float(batch_loss)
-            acc += batch_acc.data.item()
             total += args.train_batch_size
 
-        print(f'epoch: {e} /loss: {loss/total:.3f} / accuracy: {(acc/total)*100:.3f}%')
-        gc.collect()
-        if e % 10 == 0: # test module 
-            dev_loss, dev_acc, dev_total = 0, 0, 0
-            for batch in data.dev_iter: #-----
-                seqlens = batch.dialog[1].cpu().numpy()
-                max_seq = batch.dialog[0].size(1) 
-                mask = list()
-                for l in seqlens:
-                    mask.append(torch.cat((torch.ones(l, device=args.device), torch.zeros(max_seq-l, device=args.device)), 0).unsqueeze(0))
-                mask = torch.cat(mask, 0)
+        print(f'epoch: {e} /loss: {loss/total:.3f}')
+    #     gc.collect()
+    #     if e % 10 == 0: # test module 
+    #         dev_loss, dev_acc, dev_total = 0, 0, 0
+    #         for batch in data.dev_iter: #-----
+    #             seqlens = batch.dialog[1].cpu().numpy()
+    #             max_seq = batch.dialog[0].size(1) 
+    #             mask = list()
+    #             for l in seqlens:
+    #                 mask.append(torch.cat((torch.ones(l, device=args.device), torch.zeros(max_seq-l, device=args.device)), 0).unsqueeze(0))
+    #             mask = torch.cat(mask, 0)
 
-                batch_loss, out = test(model, batch.dialog[0], batch.answer, mask, batch.dialog[1], model_loss)            
-                batch_pred = torch.argmax(out, dim=1)
-                batch_acc = (batch_pred == batch.answer).sum()
-                dev_loss += float(batch_loss)
-                dev_acc += batch_acc.data.item()
-                dev_total += args.dev_batch_size
-            print(f'dev-epoch: {e} /dev-loss: {dev_loss/dev_total:.3f} / dev-accuracy: {(dev_acc/dev_total)*100:.3f}%')
+    #             batch_loss, out = test(model, batch.dialog[0], batch.answer, mask, batch.dialog[1], model_loss)            
+    #             batch_pred = torch.argmax(out, dim=1)
+    #             batch_acc = (batch_pred == batch.answer).sum()
+    #             dev_loss += float(batch_loss)
+    #             dev_acc += batch_acc.data.item()
+    #             dev_total += args.dev_batch_size
+    #         print(f'dev-epoch: {e} /dev-loss: {dev_loss/dev_total:.3f} / dev-accuracy: {(dev_acc/dev_total)*100:.3f}%')
 
-        if e % 100 == 0:
-            print('+++++++++++ TEST VIS STARTED ++++++++++++')
-            # for batch in data.train_iter:
-            #     seqlen = batch.dialog[1][0].cpu().numpy()
-            #     max_seq = batch.dialog[0][0].size(0)
+    #     if e % 100 == 0:
+    #         print('+++++++++++ TEST VIS STARTED ++++++++++++')
+    #         # for batch in data.train_iter:
+    #         #     seqlen = batch.dialog[1][0].cpu().numpy()
+    #         #     max_seq = batch.dialog[0][0].size(0)
 
                 
 
-            #     dialog_item, answer_item, mask_item = batch.dialog[0][0], batch.answer[0], batch.dialog[0][1]
-            #     dialog_item, answer_item = dialog_item.unsqueeze(0),answer_item.unsqueeze(0) 
-            #     mask = torch.cat((torch.ones(seqlen, device=args.device), torch.zeros(max_seq-seqlen, device=args.device)), 0).unsqueeze(0)                       
+    #         #     dialog_item, answer_item, mask_item = batch.dialog[0][0], batch.answer[0], batch.dialog[0][1]
+    #         #     dialog_item, answer_item = dialog_item.unsqueeze(0),answer_item.unsqueeze(0) 
+    #         #     mask = torch.cat((torch.ones(seqlen, device=args.device), torch.zeros(max_seq-seqlen, device=args.device)), 0).unsqueeze(0)                       
                 
               
-            #     attention_values = test(model, dialog_item, answer_item, mask, mask_item.unsqueeze(0), model_loss, True)
-            #     # attention_values = torch.cat(attention_values, dim=0)
-            #     dialog_item = dialog_item.cpu().numpy()
-            #     dialog = list()
+    #         #     attention_values = test(model, dialog_item, answer_item, mask, mask_item.unsqueeze(0), model_loss, True)
+    #         #     # attention_values = torch.cat(attention_values, dim=0)
+    #         #     dialog_item = dialog_item.cpu().numpy()
+    #         #     dialog = list()
 
-            #     for idx in dialog_item[0]:
-            #         dialog.append(data.DIALOG_QUERY.vocab.itos[idx])
-            #     visualize(attention_values, dialog, args.model_name+'_'+args.task+'_'+str(e))
-            #     break
+    #         #     for idx in dialog_item[0]:
+    #         #         dialog.append(data.DIALOG_QUERY.vocab.itos[idx])
+    #         #     visualize(attention_values, dialog, args.model_name+'_'+args.task+'_'+str(e))
+    #         #     break
 
-            logger = Logger('runs/log_' + str(e))
-            for name, value in model.named_parameters():
-                # if value.grad is not None:
-                logger.histo_summary(tag = name+'/-weight', values=value.data.cpu().numpy(), step= e*len(data.train_iter)) 
-                logger.histo_summary(tag = name+'/-grad', values=value.grad.cpu().numpy(), step= e*len(data.train_iter))
+    #         logger = Logger('runs/log_' + str(e))
+    #         for name, value in model.named_parameters():
+    #             # if value.grad is not None:
+    #             logger.histo_summary(tag = name+'/-weight', values=value.data.cpu().numpy(), step= e*len(data.train_iter)) 
+    #             logger.histo_summary(tag = name+'/-grad', values=value.grad.cpu().numpy(), step= e*len(data.train_iter))
                 
-            torch.save(model.state_dict(), f'model/{args.model_name}_{args.task}_{e}.model')
-        gc.collect()
+    #         torch.save(model.state_dict(), f'model/{args.model_name}_{args.task}_{e}.model')
+    #     gc.collect()
 
-    print('data loading complete!')
+    # print('data loading complete!')
 
     
 

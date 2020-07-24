@@ -110,7 +110,7 @@ class EncoderModel(nn.Module):
 
         self.emb_dim = self.hidden_size
 
-        self.embedding = nn.Embedding(args.dialogue_vocab, self.hidden_size, padding_idx=0, scale_grad_by_freq=True)#.cuda()
+        
         self.rnn = nn.LSTM(self.emb_dim, self.hidden_size, self.num_layers, dropout=self.dropout, bidirectional = self.bidirectional)
         
         self.num_attn_heads =  8
@@ -146,7 +146,7 @@ class EncoderModel(nn.Module):
     def forward(self, src, mask, lengths, display_attn = False):          
 
         self.rnn.flatten_parameters()
-        embded = self.dropout(self.embedding(src))        
+        embded = self.dropout(src)        
         # h0, c0 = self.init_zeros(len(src))
         embded = embded.permute(1,0,2)
         pack = nn.utils.rnn.pack_padded_sequence(embded, lengths, batch_first=False, enforce_sorted=True)
