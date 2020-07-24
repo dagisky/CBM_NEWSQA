@@ -116,7 +116,7 @@ class EncoderModel(nn.Module):
         self.num_attn_heads =  8
         self.multi_head_attn = MultiHeadAttention(self.hidden_size, self.hidden_size, self.num_attn_heads, self.args.device)
         # self.fc = nn.Linear(self.hidden_size * 2 * self.num_attn_heads, args.answer_vocab)
-        self.relational = RelationalLayer(self.hidden_size * 2, args.answer_vocab, self.args.device, self.hyp["relational"])
+        self.relational = RelationalLayer(self.hidden_size * 2, self.hidden_size * 2 , self.args.device, self.hyp["relational"])
         self.dropout = nn.Dropout(self.dropout)
                 
         self.ones = torch.tensor(torch.ones(1), dtype=torch.float, device=args.device, requires_grad=False) #  
