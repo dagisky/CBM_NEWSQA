@@ -11,9 +11,9 @@ from MultiHeadRln import EncoderModel
 from Utils.utils import Logger
 import json
 import torch.nn as nn
-from utils.vis import visualize
+from Utils.vis import visualize
 
-from utils import load_data, convert_examples_to_features
+from Utils import load_data, convert_examples_to_features
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
