@@ -8,12 +8,11 @@ from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 from time import gmtime, strftime
 from MultiHeadRln import EncoderModel
-from Utils.utils import Logger
+from Utils.utils import Logger, load_data, convert_examples_to_features
 import json
 import torch.nn as nn
 from Utils.vis import visualize
 
-from Utils import load_data, convert_examples_to_features
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
