@@ -8,7 +8,7 @@ from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 from time import gmtime, strftime
 from MultiHeadRln import EncoderModel
-from utils.utils import Logger
+from Utils.utils import Logger
 import json
 import torch.nn as nn
 from utils.vis import visualize
