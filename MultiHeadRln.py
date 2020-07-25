@@ -32,6 +32,10 @@ class Attention(nn.Module):
         batch_size = encoder_outputs.shape[0]
         src_len = encoder_outputs.shape[1] 
         c_t = c_t.unsqueeze(1).repeat(1, src_len, 1)
+        print('-------------------------')
+        print(c_t.device)
+        print(hidden.device)
+        print(encoder.device)
         energy = F.relu(self.attn(torch.cat((hidden, c_t, encoder_outputs), dim=2)))  #relu   
         v = self.v.repeat(batch_size, 1).unsqueeze(2)
         attention = torch.bmm(energy, v).squeeze(2) 
