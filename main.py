@@ -30,7 +30,7 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     print(p2.size())
     print(seqlens.size())
     print("---------------------") 
-    pred, std = model(x, mask, seqlens) 
+    pred, std = model(x[0], mask, seqlens) 
     log_softmax = nn.LogSoftmax()
     optim.zero_grad()  
     loss = mloss(log_softmax(pred[0]), p1) + mloss(log_softmax(pred[1]), p1)
