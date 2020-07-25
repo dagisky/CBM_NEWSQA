@@ -30,7 +30,7 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     print(p2.size())
     print(seqlens.size())
     print("---------------------") 
-    pred, std = model(x[0], mask, seqlens) 
+    pred, std = model(x[0].to(args.device), mask, seqlens) 
     log_softmax = nn.LogSoftmax()
     optim.zero_grad()  
     loss = mloss(log_softmax(pred[0]), p1) + mloss(log_softmax(pred[1]), p1)
@@ -89,7 +89,7 @@ def main():
     setattr(args, 'model_time', strftime('%H_%M_%S', gmtime()))
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    bert_model = BertModel.from_pretrained('bert-base-uncased').to(device)
+    bert_model = BertModel.from_pretrained('bert-base-uncased')
 
     data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1', size=500)
     features = convert_examples_to_features(data, tokenizer, 200, 100, 50, True)
@@ -104,7 +104,7 @@ def main():
     model_loss = nn.NLLLoss()
     optimizer  = torch.optim.SGD(model.parameters(), lr=args.learning_rate)
 
-    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long, device=device)
+    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long, device=device)
     all_seq_lengths = torch.tensor([len(f.input_ids) for f in features], dtype=torch.long, device=device)
     all_start_pos = torch.tensor([f.start_position for f in features], dtype=torch.long, device=device)
