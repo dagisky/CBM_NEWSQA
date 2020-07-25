@@ -89,7 +89,7 @@ def main():
     setattr(args, 'model_time', strftime('%H_%M_%S', gmtime()))
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    bert_model = BertModel.from_pretrained('bert-base-uncased')
+    bert_model = BertModel.from_pretrained('bert-base-uncased').to(device)
 
     data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1', size=500)
     features = convert_examples_to_features(data, tokenizer, 200, 100, 50, True)
