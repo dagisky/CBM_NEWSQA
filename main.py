@@ -22,7 +22,9 @@ gpu_list = [4, 6, 7] # List of GPU cards to run on [4, 6, 7]
 
 
 def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
-    print(x.size())
+    print(len(x))
+    print(x[0].size())
+    print(x[1].size())
     print(mask.size())
     print(p1.size())
     print(p2.size())
