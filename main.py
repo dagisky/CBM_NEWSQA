@@ -21,7 +21,13 @@ gpu_list = [4, 6, 7] # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
 
 
-def train(model, x, mask, p1, p2, seqlens, mloss, optim, args): 
+def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
+    print(x.size())
+    print(mask.size())
+    print(p1.size())
+    print(p2.size())
+    print(seqlens.size())
+    print("---------------------") 
     pred, std = model(x, mask, seqlens) 
     log_softmax = nn.LogSoftmax()
     optim.zero_grad()  
