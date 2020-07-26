@@ -68,7 +68,7 @@ class MultiHeadAttention(nn.Module):
         batch_size = encoder_outputs.shape[0]
         src_len = encoder_outputs.shape[1]
         hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)       
-        c_t = torch.zeros(batch_size, self.input_dim*2).to(self.device)
+        c_t = torch.zeros(batch_size, self.input_dim*2).cuda(async=True).to(self.device)
         a = list()
         for i, attn in enumerate(self.attn_heads):
             a.append(attn(hidden, encoder_outputs, mask, c_t))
