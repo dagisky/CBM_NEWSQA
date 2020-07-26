@@ -17,7 +17,7 @@ from Utils.vis import visualize
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
-gpu_list = [4, 6, 7] # List of GPU cards to run on [4, 6, 7]
+gpu_list = [4] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
 
 
