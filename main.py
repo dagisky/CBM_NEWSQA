@@ -17,7 +17,7 @@ from Utils.vis import visualize
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
-gpu_list = [4, 6] # 6, 7 # List of GPU cards to run on [4, 6, 7]
+gpu_list = [4, 6, 7] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
 
 
@@ -99,7 +99,7 @@ def main():
    
  
     model = EncoderModel(args, hyp)
-    model = nn.DataParallel(model, device_ids=gpu_list)
+    # model = nn.DataParallel(model, device_ids=gpu_list)
 
     model_loss = nn.NLLLoss()
     optimizer  = torch.optim.SGD(model.parameters(), lr=args.learning_rate)
