@@ -22,20 +22,11 @@ gpu_list = [4, 6, 7] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 
 
 def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
-    print(len(x))
-    print(x[0].size())
-    print(x[1].size())
-    print(mask.size())
-    print(p1.size())
-    print(p2.size())
-    print(seqlens.size())
-    print("---------------------") 
+    
     pred, std = model(torch.transpose(x[0].to(args.device), -2,-1), mask.to(args.device), seqlens.to(args.device)) 
     
     optim.zero_grad()  
-    print(len(pred))
-    print(pred[0].size())
-    loss = mloss(pred[0], p1.to(args.device)) + mloss(pred[1], p1.to(args.device))
+    loss = mloss(pred[0], torch.argmax(p1.to(args.device), dim=1)) + mloss(pred[1], torch.argmax(p1.to(args.device), dim=1))
     print(std.size())
 
     std = torch.sum(std)
