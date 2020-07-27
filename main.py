@@ -36,7 +36,8 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     print(len(pred))
     print(pred[0].size())
     loss = mloss(pred[0], p1.to(args.device) + mloss(pred[1], p1.to(args.device))
-   
+    print(std.size())
+    
     std = torch.sum(std)
 
     loss = loss + args.std_alpha*std
