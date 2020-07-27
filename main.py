@@ -31,11 +31,11 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     print(seqlens.size())
     print("---------------------") 
     pred, std = model(torch.transpose(x[0].to(args.device), -2,-1), mask.to(args.device), seqlens.to(args.device)) 
-    log_softmax = nn.LogSoftmax()
+    
     optim.zero_grad()  
     print(len(pred))
     print(pred[0].size())
-    loss = mloss(log_softmax(pred[0]), p1.to(args.device)) + mloss(log_softmax(pred[1]), p1.to(args.device))
+    loss = mloss(pred[0], p1.to(args.device) + mloss(pred[1], p1.to(args.device))
    
     std = torch.sum(std)
 
