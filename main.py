@@ -35,7 +35,7 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     optim.zero_grad()  
     print(len(pred))
     print(pred[0].size())
-    loss = mloss(log_softmax(pred[0]), p1) + mloss(log_softmax(pred[1]), p1)
+    loss = mloss(log_softmax(pred[0]), p1.to(args.device)) + mloss(log_softmax(pred[1]), p1.to(args.device))
    
     std = torch.sum(std)
 
