@@ -119,7 +119,7 @@ class RelationalLayer(RelationalLayerBase):
         x_f = self.dropout(x_f)
         x_f = F.relu(x_f)
         x_f = self.f_fc3(x_f)
-
-        return F.log_softmax(x_f, dim=1)
+        x_f1, x_f2 = torch.split(x_f, 200, dim=1)
+        return [F.log_softmax(x_f1, dim=1), F.log_softmax(x_f2, dim=1)]
 
 
