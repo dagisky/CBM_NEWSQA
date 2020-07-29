@@ -32,6 +32,7 @@ class Attention(nn.Module):
         batch_size = encoder_outputs.shape[0]
         src_len = encoder_outputs.shape[1] 
         c_t = c_t.unsqueeze(1).repeat(1, src_len, 1)
+        print([hidden.device, c_t.device, encoder_outputs.device])
         energy = F.relu(self.attn(torch.cat((hidden, c_t, encoder_outputs), dim=2)))  #relu   
         v = self.v.repeat(batch_size, 1).unsqueeze(2)
         attention = torch.bmm(energy, v).squeeze(2) 
@@ -68,7 +69,7 @@ class MultiHeadAttention(nn.Module):
         batch_size = encoder_outputs.shape[0]
         src_len = encoder_outputs.shape[1]
         hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)       
-        c_t = torch.zeros(batch_size, self.input_dim*2).cuda(async=True).to(self.device)
+        c_t = torch.zeros(batch_size, self.input_dim*2).cuda(async=True)
         a = list()
         for i, attn in enumerate(self.attn_heads):
             a.append(attn(hidden, encoder_outputs, mask, c_t))
@@ -99,10 +100,6 @@ class EncoderModel(nn.Module):
         self.hyp = hyp
         self.use_cuda = args.use_cuda
 
-        if args.use_cuda:
-            print('[ Using CUDA ]')
-            torch.cuda.device(args.device)
-
         self.hidden_size = int(hyp["rnn"]["hidden_size"]) # hidden_size
         self.num_layers = int(hyp["rnn"]["num_layers"]) 
         self.dropout = float(hyp["rnn"]["dropout"]) 
@@ -132,8 +129,8 @@ class EncoderModel(nn.Module):
                 'multi_head': self.multi_head_attn, #'attn':self.attn,
                 'relational': self.relational
                 }    
-        if self.use_cuda:
-            self.cuda()
+        # if self.use_cuda:
+        #    self.cuda()
 
 
     def cuda(self):
@@ -143,7 +140,7 @@ class EncoderModel(nn.Module):
 
         
     def forward(self, src, mask, lengths, display_attn = False):          
-
+        
         self.rnn.flatten_parameters()
         embded = self.dropout(src)        
         # h0, c0 = self.init_zeros(len(src))

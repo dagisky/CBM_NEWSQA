@@ -17,13 +17,16 @@ from Utils.vis import visualize
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
-gpu_list = [4, 6, 7] # 6, 7 # List of GPU cards to run on [4, 6, 7]
+gpu_list = [6, 7, 8] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
 
 
 def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
-    
-    pred, std = model(torch.transpose(x[0].to(args.device), -2,-1), mask.to(args.device), seqlens.to(args.device)) 
+    print(torch.transpose(x[0], -2, -1).device)
+    print(mask.device)
+    print(seqlens.device)    
+
+    pred, std = model(torch.transpose(x[0], -2,-1), mask, seqlens) 
     
     optim.zero_grad()  
     loss = mloss(pred[0], torch.argmax(p1.to(args.device), dim=1)) + mloss(pred[1], torch.argmax(p1.to(args.device), dim=1))
@@ -60,7 +63,7 @@ def main():
     parser.add_argument('--epoch_start', default=0, type=int)
     parser.add_argument('--exp-decay-rate', default=0.99, type=float)
     parser.add_argument('--use_cuda', default=True)
-    parser.add_argument('--hidden-size', default=768, type=int)
+    parser.add_argument('--hidden-size', default=767, type=int)
     parser.add_argument('--learning-rate', default=0.05, type=float)
     parser.add_argument('--print-freq', default=250, type=int)
     parser.add_argument('--train-batch-size', default=60, type=int)
@@ -92,8 +95,8 @@ def main():
         hyp = json.load(config_file)['hyperparams']  
    
  
-    model = EncoderModel(args, hyp)
-    # model = nn.DataParallel(model, device_ids=gpu_list)
+    model = EncoderModel(args, hyp).to(device)
+    model = nn.DataParallel(model, device_ids=gpu_list)
 
     model_loss = nn.NLLLoss()
     optimizer  = torch.optim.SGD(model.parameters(), lr=args.learning_rate)
