@@ -22,10 +22,6 @@ gpu_list = [6, 7, 8] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 
 
 def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
-    print(torch.transpose(x[0], -2, -1).device)
-    print(mask.device)
-    print(seqlens.device)    
-
     pred, std = model(torch.transpose(x[0], -2,-1), mask, seqlens) 
     
     optim.zero_grad()  
@@ -41,7 +37,7 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
     optim.step()
 
-    return loss, F.softmax(pred, dim=1)
+    return loss, pred
 
 def test(model, x, y, mask, seqlens, mloss, visualize=False):
     if visualize:
@@ -121,8 +117,10 @@ def main():
     for e in range(args.epoch_start, args.epoch):        
         loss, acc, total = 0.0, 0.0, 0.0
         for i, batch in enumerate(eval_dataloader): 
-            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[3], batch[4], batch[2], model_loss, optimizer, args)            
-            batch_pred = torch.argmax(out, dim=1)
+            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[3], batch[4], batch[2], model_loss, optimizer, args)
+            print(batch_loss)        
+            batch_pred_p1 = torch.argmax(out[0], dim=1)
+            batch_pred_p2 = torch.argmax(out[1], dim=1)
             loss += float(batch_loss)
             total += args.train_batch_size
 
