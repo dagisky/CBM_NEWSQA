@@ -13,7 +13,7 @@ from data import load_data, convert_examples_to_features
 import json
 import torch.nn as nn
 from Utils.vis import visualize
-
+import collections
 from pytorch_transformers import BertTokenizer, BertModel #*
 from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
 
@@ -24,9 +24,10 @@ gpu_list = [6, 7, 8] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
     pred, std = model(torch.transpose(x[0], -2,-1), mask, seqlens) 
     
-    optim.zero_grad()  
-    loss = mloss(pred[0], torch.argmax(p1.to(args.device), dim=1)) + mloss(pred[1], torch.argmax(p1.to(args.device), dim=1))
-    print(std.size())
+    optim.zero_grad()
+    # print([pred[0].device, p1.device, p1.to(args.device).device])
+    loss = mloss(pred[0], p1.to(args.device)) + mloss(pred[1], p2.to(args.device))
+    
 
     std = torch.sum(std)
 
@@ -48,6 +49,45 @@ def test(model, x, y, mask, seqlens, mloss, visualize=False):
     loss = mloss(log_softmax(pred), y)
     return loss, F.softmax(pred, dim=1)
 
+def get_ans_range(ans):
+    if ans[0] == 0 and ans[1] == 0:
+        return [0]
+    elif ans[0] > ans[1]:
+        return [0]
+    else:
+        return list(range(ans[0], ans[1]+1))
+
+def compute_em(target, pred, batch_size = 0):
+    def em(a_gold, a_pred):
+        return int(a_gold==a_pred)
+    if batch_size == 0:
+        return em(target, pred)
+    else:
+        tot_em = 0
+        for t, p in zip(target, pred):
+            tot_em += em(t,p)
+        return tot_em/batch_size
+
+def compute_f1(target, pred, batch_size=0):
+    def f1(a_gold, a_pred):
+        common = collections.Counter(a_gold) & collections.Counter(a_pred)
+        num_same = sum(common.values())
+        if len(a_gold) == 0 or len(a_pred) == 0:
+            # If either is no-answer, then F1 is 1 if they agree, 0 otherwise
+            return int(a_gold == a_pred)
+        if num_same == 0:
+            return 0
+        precision = 1.0 * num_same/len(a_pred)
+        recall = 1.0 * num_same/len(a_gold)
+        f1 = (2 * precision * recall) / (precision + recall)
+        return f1
+    if batch_size == 0:
+        return f1(target, pred)
+    else:
+        tot_f1 = 0
+        for t, p in zip(target, pred):
+            tot_f1 += f1(t,p)
+        return tot_f1/batch_size
 
 def main():
     parser = argparse.ArgumentParser()
@@ -104,7 +144,7 @@ def main():
     all_end_pos = torch.tensor([f.end_position for f in features], dtype=torch.long)
     all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
     all_example_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
-    dataset = TensorDataset(all_input_ids, all_input_mask, all_seq_lengths, all_segment_ids, all_example_index)
+    dataset = TensorDataset(all_input_ids, all_input_mask, all_start_pos, all_end_pos, all_seq_lengths, all_segment_ids, all_example_index)
 
     eval_sampler = SequentialSampler(dataset)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.train_batch_size)
@@ -115,16 +155,21 @@ def main():
         model.load_state_dict(torch.load(f'model/{args.resume}', map_location=args.device)) #  map_location
     # loss, acc, total = 0, 0, 0
     for e in range(args.epoch_start, args.epoch):        
-        loss, acc, total = 0.0, 0.0, 0.0
+        f1, em, total, loss = 0.0, 0.0, 0.0, 0.0
         for i, batch in enumerate(eval_dataloader): 
-            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[3], batch[4], batch[2], model_loss, optimizer, args)
-            print(batch_loss)        
-            batch_pred_p1 = torch.argmax(out[0], dim=1)
-            batch_pred_p2 = torch.argmax(out[1], dim=1)
+            batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[2], batch[3], batch[4], model_loss, optimizer, args)
+            pred = list(zip(torch.argmax(out[0], dim=1).cpu().numpy(), torch.argmax(out[1],dim=1).cpu().numpy()))
+            ans = list(zip(batch[2].cpu().numpy(), batch[3].cpu().numpy()))
+            batch_f1 = compute_f1(ans, pred, len(pred))
+            batch_em = compute_em(ans, pred, len(pred))
+            total += i
+            f1 += batch_f1
+            em += batch_em
             loss += float(batch_loss)
-            total += args.train_batch_size
-
-        print(f'epoch: {e} /loss: {loss/total:.3f}')
+            if i%10 == 0: # print every 10th loop
+                print('F1:-'+str(f1/i)+'EM:-'+str(em/i)+'--- Loss:'+str(loss/i))
+                                    
+        print(f'epoch: {e} /loss: {loss/total:.3f} /F1: {f1/total:.3f} /EM: {em/total:.3f}')
     #     gc.collect()
     #     if e % 10 == 0: # test module 
     #         dev_loss, dev_acc, dev_total = 0, 0, 0
