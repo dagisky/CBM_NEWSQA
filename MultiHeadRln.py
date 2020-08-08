@@ -142,9 +142,9 @@ class EncoderModel(nn.Module):
     def forward(self, src, mask, lengths, display_attn = False):          
         
         self.rnn.flatten_parameters()
-        embded = self.dropout(src)        
+        # embded = self.dropout(src)        
         # h0, c0 = self.init_zeros(len(src))
-        embded = embded.permute(1,0,2)
+        embded = src.permute(1,0,2)
         pack = nn.utils.rnn.pack_padded_sequence(embded, lengths, batch_first=False, enforce_sorted=True)
         outputs, (hidden, state) = self.rnn(pack) #(h0, c0)
         outputs = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=False, padding_value=0.0)

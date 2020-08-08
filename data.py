@@ -165,7 +165,7 @@ def load_data(story_path = "data/", question_filename="newsqa-data-v1", size=Non
         df['all_answers'] = all_answers
         df['tokens'] = tokens
         df = df.drop(['answer_char_ranges','validated_answers','validater_one','validater_two'], axis=1)
-        df.to_pickle(question_filename+".pkl")
+        # df.to_pickle(question_filename+".pkl")
     return df 
 
 

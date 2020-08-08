@@ -15,7 +15,8 @@ import torch.nn as nn
 from Utils.vis import visualize
 import collections
 from pytorch_transformers import BertTokenizer, BertModel #*
-from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
+from torch.utils.data import DataLoader, SequentialSampler, TensorDataset, random_split
+from tqdm import tqdm
 
 gpu_list = [6, 7, 8] # 6, 7 # List of GPU cards to run on [4, 6, 7]
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,1,4" 
@@ -40,14 +41,13 @@ def train(model, x, mask, p1, p2, seqlens, mloss, optim, args):
 
     return loss, pred
 
-def test(model, x, y, mask, seqlens, mloss, visualize=False):
+def test(model, x, mask, p1, p2, seqlens, mloss, args, visualize=False):
     if visualize:
         attn, std = model(x, mask, seqlens, visualize)
         return attn
-    pred, _ = model(x, mask, seqlens)
-    log_softmax = nn.LogSoftmax()
-    loss = mloss(log_softmax(pred), y)
-    return loss, F.softmax(pred, dim=1)
+    pred, _ = model(torch.transpose(x[0],-2, -1), mask, seqlens)
+    loss = mloss(pred[0], p1.to(args.device)) + mloss(pred[1], p2.to(args.device))
+    return loss, pred
 
 def get_ans_range(ans):
     if ans[0] == 0 and ans[1] == 0:
@@ -124,9 +124,9 @@ def main():
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     bert_model = BertModel.from_pretrained('bert-base-uncased')
 
-    data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1', size=500)
-    features = convert_examples_to_features(data, tokenizer, 200, 100, 50, True)
-
+    data = load_data(story_path='../data', question_filename='../data/newsqa-data-v1')
+    features = convert_examples_to_features(data, tokenizer, 350, 150, 50, True)
+    print("Data loading finished...")
     with open(args.config) as config_file: 
         hyp = json.load(config_file)['hyperparams']  
    
@@ -136,19 +136,23 @@ def main():
 
     model_loss = nn.NLLLoss()
     optimizer  = torch.optim.SGD(model.parameters(), lr=args.learning_rate)
-
-    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_seq_lengths = torch.tensor([len(f.input_ids) for f in features], dtype=torch.long)
-    all_start_pos = torch.tensor([f.start_position for f in features], dtype=torch.long)
-    all_end_pos = torch.tensor([f.end_position for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    print("Loading data to RAM: (6: items)")
+    all_input_ids = torch.tensor([f.input_ids for f in tqdm(features)], dtype=torch.long)
+    all_input_mask = torch.tensor([f.input_mask for f in tqdm(features)], dtype=torch.long)
+    all_seq_lengths = torch.tensor([len(f.input_ids) for f in tqdm(features)], dtype=torch.long)
+    all_start_pos = torch.tensor([f.start_position for f in tqdm(features)], dtype=torch.long)
+    all_end_pos = torch.tensor([f.end_position for f in tqdm(features)], dtype=torch.long)
+    all_segment_ids = torch.tensor([f.segment_ids for f in tqdm(features)], dtype=torch.long)
     all_example_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
     dataset = TensorDataset(all_input_ids, all_input_mask, all_start_pos, all_end_pos, all_seq_lengths, all_segment_ids, all_example_index)
 
-    eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.train_batch_size)
-    
+    lengths = [int(len(dataset)*0.8), int(len(dataset))-int(len(dataset)*0.8)]
+    train_dataset, test_dataset = random_split(dataset, lengths)
+    print(f'Training Dataset: {int(len(dataset)*0.8)},  Dev Dataset: {int(len(dataset))-int(len(dataset)*0.8)}')
+    train_sampler = SequentialSampler(train_dataset)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    eval_sampler = SequentialSampler(test_dataset)
+    eval_dataloader = DataLoader(test_dataset, sampler=eval_sampler, batch_size=args.train_batch_size)
 
     if os.path.exists(f'model/{args.resume}'):
         print(f'loading ..........model/{args.resume}')
@@ -156,24 +160,33 @@ def main():
     # loss, acc, total = 0, 0, 0
     for e in range(args.epoch_start, args.epoch):        
         f1, em, total, loss = 0.0, 0.0, 0.0, 0.0
-        for i, batch in enumerate(eval_dataloader): 
+        for i, batch in enumerate(train_dataloader): 
             batch_loss, out = train(model, bert_model(batch[0]), batch[1], batch[2], batch[3], batch[4], model_loss, optimizer, args)
             pred = list(zip(torch.argmax(out[0], dim=1).cpu().numpy(), torch.argmax(out[1],dim=1).cpu().numpy()))
             ans = list(zip(batch[2].cpu().numpy(), batch[3].cpu().numpy()))
             batch_f1 = compute_f1(ans, pred, len(pred))
             batch_em = compute_em(ans, pred, len(pred))
-            total += i
+            total = i
             f1 += batch_f1
             em += batch_em
             loss += float(batch_loss)
             if i%10 == 0: # print every 10th loop
-                print('F1:-'+str(f1/i)+'EM:-'+str(em/i)+'--- Loss:'+str(loss/i))
+                print('F1:-'+str(f1/(i+1))+'  EM:-'+str(em/(i+1))+'  Loss:'+str(loss/(i+1)))
                                     
         print(f'epoch: {e} /loss: {loss/total:.3f} /F1: {f1/total:.3f} /EM: {em/total:.3f}')
-    #     gc.collect()
-    #     if e % 10 == 0: # test module 
-    #         dev_loss, dev_acc, dev_total = 0, 0, 0
-    #         for batch in data.dev_iter: #-----
+    
+    
+        dev_f1, dev_em, dev_total, dev_loss = 0.0, 0.0, 0.0, 0.0
+        for i,  batch in enumerate(eval_dataloader): #-----
+            batch_loass, out = test(model, bert_model(batch[0]), batch[1], batch[2], batch[3], batch[4], model_loss, args)
+            pred = list(zip(torch.argmax(out[0], dim=1).cpu().numpy(), torch.argmax(out[1], dim=1).cpu().numpy()))
+            ans = list(zip(batch[2].cpu().numpy(), batch[3].cpu().numpy()))
+            dev_f1 += compute_f1(ans, pred, len(pred))
+            dev_em += compute_em(ans, pred, len(pred))
+            dev_loss += float(batch_loss)
+            dev_total += i
+        print(f'Test:- loss:{dev_loss/dev_total:.3f} /F1: {dev_f1/dev_total} /EM: {dev_em/dev_total}')
+           
     #             seqlens = batch.dialog[1].cpu().numpy()
     #             max_seq = batch.dialog[0].size(1) 
     #             mask = list()
