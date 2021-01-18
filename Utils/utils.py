@@ -133,3 +133,90 @@ def f1_score(prediction, ground_truth):
 
 def exact_match_score(prediction, ground_truth):
     return (normalize_answer(prediction) == normalize_answer(ground_truth))
+
+
+class MLP(torch.nn.Module):
+    NLS = {'relu': torch.nn.ReLU, 'tanh': nn.Tanh, 'sigmoid': nn.Sigmoid, 'softmax': nn.Softmax, 'logsoftmax': nn.LogSoftmax}
+
+    def __init__(self, D_in: int, hidden_dims: list, D_out: int, nonlin='relu'):
+        super().__init__()
+        
+        all_dims = [D_in, *hidden_dims, D_out]
+        layers = []
+        
+        for in_dim, out_dim in zip(all_dims[:-1], all_dims[1:]):
+            layers += [
+                nn.Linear(in_dim, out_dim, bias=True),
+                MLP.NLS[nonlin]()
+            ]
+        
+        self.fc_layers = nn.Sequential(*layers[:-1])
+        self.log_softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, x):
+        x = torch.reshape(x, (x.shape[0], -1))
+        z = self.fc_layers(x)
+        y_pred = self.log_softmax(z)
+        # Output is always log-probability
+        return y_pred
+
+# class MLP(nn.Module):
+#     def __init__(self, equation, in_features, hidden_size, out_size):
+#         super(MLP, self).__init__()
+#         self.equation = equation
+#         # Layers
+#         # 1
+#         self.W1 = nn.Parameter(torch.zeros(in_features, hidden_size))
+#         nn.init.xavier_uniform_(self.W1.data)
+#         self.b1 = nn.Parameter(torch.zeros(hidden_size))
+#         # 2
+#         self.W2 = nn.Parameter(torch.zeros(hidden_size, out_size))
+#         nn.init.xavier_uniform_(self.W2.data)
+#         self.b2 = nn.Parameter(torch.zeros(out_size))
+
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         hidden = torch.tanh(torch.einsum(self.equation, x, self.W1) + self.b1)
+#         out = torch.tanh(torch.einsum(self.equation, hidden, self.W2) + self.b2)
+#         return out
+
+
+class OptionalLayer(nn.Module):
+    def __init__(self, layer: nn.Module, active: bool = False):
+        super(OptionalLayer, self).__init__()
+        self.layer = layer
+        self.active = active
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.active:
+            return self.layer(x)
+        return x
+
+
+
+class LayerNorm1(nn.Module):
+    def __init__(self, hidden_size: int, eps: float = 1e-12):
+        super(LayerNorm1, self).__init__()
+        self.hidden_size = hidden_size
+        self.eps = eps
+        self.gain = nn.Parameter(torch.ones(hidden_size))
+        self.bias = nn.Parameter(torch.zeros(hidden_size))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        mu = x.mean(-1, keepdim=True)
+        sigma = (x - mu).pow(2).mean(-1, keepdim=True)
+        normalized = (x - mu) / (torch.sqrt(sigma + self.eps))
+        return normalized * self.gain + self.bias
+
+class WarmupScheduler(_LRScheduler):
+    def __init__(self, optimizer: optim.Optimizer, multiplier: float, steps: int):
+        self.multiplier = multiplier
+        self.steps = steps
+        super(WarmupScheduler, self).__init__(optimizer=optimizer)
+
+    def get_lr(self):
+        if self.last_epoch < self.steps:
+            return [base_lr * self.multiplier for base_lr in self.base_lrs]
+        return self.base_lrs
+
+    def decay_lr(self, decay_factor: float):
+        self.base_lrs = [decay_factor * base_lr for base_lr in self.base_lrs]
